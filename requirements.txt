@@ -1,0 +1,5 @@
+aiogram>=3.13
+aiohttp>=3.9
+aiosqlite>=0.20
+cryptography>=42.0
+pyyaml>=6.0

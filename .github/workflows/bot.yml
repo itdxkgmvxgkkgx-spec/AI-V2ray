@@ -1,0 +1,67 @@
+name: v2ray_config bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      chain:
+        description: "relaunch chain counter (set automatically)"
+        required: false
+        default: "0"
+  push:
+    branches: [main]
+    paths-ignore: ["README.md", "docs/**"]
+  schedule:
+    # watchdog: if the chain ever breaks, this restarts it (concurrency below prevents duplicates)
+    - cron: "17 */6 * * *"
+
+concurrency:
+  group: v2ray-config-bot
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355          # GitHub hard limit is 360
+    env:
+      BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+      ADMIN_ID: ${{ secrets.ADMIN_ID }}
+      GH_PAT: ${{ secrets.GH_PAT }}
+      TAVILY_API_KEY: ${{ secrets.TAVILY_API_KEY }}
+      CHAIN: ${{ github.event.inputs.chain || '0' }}
+      MAX_RUN_MINUTES: "345"
+      STATE_BRANCH: state
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GH_PAT || github.token }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Cache proxy cores
+        uses: actions/cache@v4
+        with:
+          path: bin
+          key: cores-${{ runner.os }}-xray25.3.6-singbox1.11.7
+
+      - name: Run bot
+        run: python main.py
+
+      - name: Final state push (safety net)
+        if: always()
+        run: |
+          if [ -d ../_state_worktree/.git ]; then
+            cd ../_state_worktree && git add -A && git -c user.name=bot -c user.email=bot@users.noreply.github.com commit -qm "state: job end" || true
+            git push -q origin "$STATE_BRANCH" || git push -q -f origin "$STATE_BRANCH" || true
+          fi

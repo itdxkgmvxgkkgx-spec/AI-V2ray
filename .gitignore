@@ -1,0 +1,17 @@
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# runtime (persisted on the `state` branch, never on main)
+data/*
+!data/.gitkeep
+bin/
+*.log
+.env
+.dev.vars
+
+# archives
+*.zip
+*.tar.gz
